@@ -18,3 +18,6 @@ __pycache__/
 # Ignore csv reports from clockify
 *.csv
 *.xlsx
+
+# Ignore geckodriver from selenium
+geckodriver.log
