@@ -13,6 +13,7 @@ import logging
 from pathlib import Path
 from typing import Any
 import pandas as pd
+from argparse import ArgumentParser
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -20,12 +21,21 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.firefox.options import Options
 
+import credentials as cdt
+
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.DEBUG)
 handler = logging.StreamHandler()
 handler_formatter = logging.Formatter('[%(asctime)-26s] (%(name)s) - %(levelname)-8s :: %(message)s')
 handler.setFormatter(handler_formatter)
 logger.addHandler(handler)
+
+parser = ArgumentParser()
+parser.add_argument('--date_range', dest='date_range', action='store', default='Last week',
+                    help="Date range for updating Bitacora. e.g: ['This week', 'Last week', '03/04/2023 - 07/04/2023]")
+args = parser.parse_args()
+
+PICKED_DATE_RANGE = args.date_range
 
 
 class Bitacora:
@@ -55,24 +65,27 @@ class Bitacora:
         # Take de driver file from /usr/local/bin
         self.driver = webdriver.Firefox(options=options)
 
-        # Open the url on the selected browser
         logger.debug("Opening URL")
-        self.driver.get("https://app.clockify.me/reports/detailed")
+
+        # Open the url on the selected browser
+        self.driver.get(cdt.CLOCKIFY_URL)
+
+        logger.debug("Logging to the APP")
 
         # Fill email login field.
-        logger.debug("Logging to the APP")
         email_login_element = self._wait_visible_element((By.NAME, "email"))
         # email_login_element = self.driver.find_element(By.NAME, "email")
-        email_login_element.send_keys("mmaestroizquierdo@gmail.com")
+        email_login_element.send_keys(cdt.CLOCKIFY_USER_MAIL)
         # Fill password login field.
         pass_login_element = self.driver.find_element(By.NAME, "password")
-        pass_login_element.send_keys("queenkiss")
+        pass_login_element.send_keys(cdt.CLOCKIFY_USER_PASSWORD)
         # Click log in button
         login_button_element = self.driver.find_element(By.CLASS_NAME, "cl-btn")
         login_button_element.click()
 
+        logger.debug(f"Selecting '{PICKED_DATE_RANGE}' as date range option")
+
         # Click datepicker
-        logger.debug("Selecting 'Last week' as date range option")
         back_button_xpath = "/html/body/app-root/default-layout/div/main/div" \
                             "/app-detailed-reports/div/div/div[1]/div/div[2]" \
                             "/div/div/datepicker-range/div[1]/button[1]"
@@ -82,14 +95,16 @@ class Bitacora:
                                      "/div[1]/div/div/span"
         datepicker_button_element = self._wait_visible_element((By.XPATH, back_button_xpath))
         span_datepickerrange_element = self.driver.find_element(By.XPATH, span_datepickerrange_xpath)
-        while not span_datepickerrange_element.text == 'Last week':
+
+        while not span_datepickerrange_element.text == PICKED_DATE_RANGE:
             # datepicker_button_element.click() # does not work, no idea!!!
             # However, below command works for clicking the button
             self.driver.execute_script("arguments[0].click();", datepicker_button_element)
         time.sleep(15)
 
-        # Select an option from a dropdown menu
         logger.debug("Exporting data as CSV file")
+
+        # Select an option from a dropdown menu
         dropdown_xpath = '/html/body/app-root/default-layout/div/main/div' \
                          '/app-detailed-reports/div/div/table-info/div/div[3]' \
                          '/div[1]/div[1]/div'
@@ -101,6 +116,7 @@ class Bitacora:
                               "/div[3]/div[1]/div[1]/div[2]/div/a[2]"
         export_dropdown_menu = self._wait_visible_element((By.XPATH, dropdown_menu_xpath))
         self.driver.execute_script("arguments[0].click();", export_dropdown_menu)
+
         logger.debug("Bitacora CSV file downloaded succesfully!!!")
 
     def change_bitacora_file_location(self) -> None:
@@ -110,7 +126,7 @@ class Bitacora:
         better management, the file is moved to the script location
         """
         found_file_flag = False
-        downloads_folder = Path.home().joinpath('Descargas')
+        downloads_folder = Path.home().joinpath(cdt.FOLDER_TO_DOWNLOAD)
         while not found_file_flag:
             logger.debug("Listing xlsx files")
             xlsx_files = list(downloads_folder.glob('**/*.csv'))
@@ -131,7 +147,9 @@ class Bitacora:
         file_name_wo_suffix = self.bitacora_file.stem
         end_date = file_name_wo_suffix.split("-")[1]
         start_date = file_name_wo_suffix.split("-")[0].split("_Detailed_")[1]
+
         logger.info(f"Time range from {start_date} to {end_date}")
+
         start_day, start_month, start_year = start_date.split("_")
         end_day, end_month, end_year = end_date.split("_")
 
@@ -164,7 +182,7 @@ class Bitacora:
 
     def update_bitacora_file(self) -> None:
         """ Updates the xlsx bitacora file with new week entries"""
-        bitacora_xlsx_path = Path.cwd().joinpath("bitacora_2023.xlsx")
+        bitacora_xlsx_path = Path.cwd().joinpath(cdt.BITACORA_FILE_NAME)
         if not bitacora_xlsx_path.exists():
             logger.info(f"Creating xlsx file: {bitacora_xlsx_path}")
             self.bitacora_df.to_excel(bitacora_xlsx_path, index=False, sheet_name="Sheet1")
@@ -185,7 +203,8 @@ class Bitacora:
                     sheet_name="Sheet1",
                     startrow=writer.sheets['Sheet1'].max_row
                     )
-        logger.info("Bitacora updated")
+
+        logger.info("¡Bitacora updated!")
 
 
 def main():
