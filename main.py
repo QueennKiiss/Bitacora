@@ -6,6 +6,9 @@ To do this:
 
 Required libraries:
     - Selenium for web management (pip install -U selenium)
+
+To execute the script:
+    > python3 main.py --date_range 'Last week'
 """
 
 import time
@@ -36,6 +39,8 @@ parser.add_argument('--date_range', dest='date_range', action='store', default='
 args = parser.parse_args()
 
 PICKED_DATE_RANGE = args.date_range
+
+DATA_RANGE_ENTRIES = ['Today', 'Yesterday', 'This week', 'Last week', 'Past two weeks', 'This month', 'Last mont']
 
 
 class Bitacora:
@@ -86,23 +91,26 @@ class Bitacora:
         logger.debug(f"Selecting '{PICKED_DATE_RANGE}' as date range option")
 
         # Click datepicker
-        back_button_xpath = "/html/body/app-root/default-layout/div/main/div" \
-                            "/app-detailed-reports/div/div/div[1]/div/div[2]" \
-                            "/div/div/datepicker-range/div[1]/button[1]"
-        span_datepickerrange_xpath = "/html/body/app-root/default-layout/div" \
-                                     "/main/div/app-detailed-reports/div/div" \
-                                     "/div[1]/div/div[2]/div/div/datepicker-range" \
-                                     "/div[1]/div/div/span"
-        datepicker_button_element = self._wait_visible_element((By.XPATH, back_button_xpath))
-        span_datepickerrange_element = self.driver.find_element(By.XPATH, span_datepickerrange_xpath)
+        # Select and click data range section to show pop up
+        date_range_dropdown_xpath = "/html/body/app-root/default-layout/div/main" \
+                                    "/div/app-detailed-reports/div/div/div[1]" \
+                                    "/div/div[2]/div/div/datepicker-range/div[1]" \
+                                    "/div/a/input"
+        date_range_dropdown = self._wait_visible_element((By.XPATH, date_range_dropdown_xpath))
+        self.driver.execute_script("arguments[0].click();", date_range_dropdown)
 
-        while not span_datepickerrange_element.text == PICKED_DATE_RANGE:
-            # datepicker_button_element.click() # does not work, no idea!!!
-            # However, below command works for clicking the button
-            self.driver.execute_script("arguments[0].click();", datepicker_button_element)
-        time.sleep(15)
+        # Wait till the date range pop up appears
+        date_range_popup_xpath = "/html/body/div[2]"
+        self._wait_visible_element((By.XPATH, date_range_popup_xpath))
 
-        logger.debug("Exporting data as CSV file")
+        # From the showed list, find the one that match PICKED_DATE_RANGE value.
+        date_range_list_xpath = "/html/body/div[2]/div[1]/ul"
+        date_range_list = self.driver.find_element(By.XPATH, date_range_list_xpath)
+        for date_range in date_range_list.find_elements(By.TAG_NAME, 'li'):
+            if date_range.text == PICKED_DATE_RANGE:
+                logger.info(f"SELECTED DATE RANGE: {date_range.text}")
+                date_range.click()
+                break
 
         # Select an option from a dropdown menu
         dropdown_xpath = '/html/body/app-root/default-layout/div/main/div' \
@@ -117,7 +125,7 @@ class Bitacora:
         export_dropdown_menu = self._wait_visible_element((By.XPATH, dropdown_menu_xpath))
         self.driver.execute_script("arguments[0].click();", export_dropdown_menu)
 
-        logger.debug("Bitacora CSV file downloaded succesfully!!!")
+        logger.debug("Bitacora CSV file downloaded successfully!!!")
 
     def change_bitacora_file_location(self) -> None:
         """ Changes the location of the downloaded file
