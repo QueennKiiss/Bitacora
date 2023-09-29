@@ -8,7 +8,7 @@ Required libraries:
     - Selenium for web management (pip install -U selenium)
 
 To execute the script:
-    > python3 main.py --date_range 'Last week'
+    > python3 update_bitacora_manager.py --date_range 'Last week'
 """
 
 import time
@@ -57,7 +57,7 @@ class Bitacora:
         element = wait.until(EC.visibility_of_element_located(locator))
         return element
 
-    def download_clockify_time_report(self) -> None:
+    def download_clockify_time_report(self, selected_date_range: str) -> None:
         """
         Download the weekly clockify time report from the webpage
 
@@ -88,7 +88,7 @@ class Bitacora:
         login_button_element = self.driver.find_element(By.CLASS_NAME, "cl-btn")
         login_button_element.click()
 
-        logger.debug(f"Selecting '{PICKED_DATE_RANGE}' as date range option")
+        logger.debug(f"Selecting '{selected_date_range}' as date range option")
 
         # Click datepicker
         # Select and click data range section to show pop up
@@ -103,11 +103,11 @@ class Bitacora:
         date_range_popup_xpath = "/html/body/div[2]"
         self._wait_visible_element((By.XPATH, date_range_popup_xpath))
 
-        # From the showed list, find the one that match PICKED_DATE_RANGE value.
+        # From the showed list, find the one that match selected_date_range value.
         date_range_list_xpath = "/html/body/div[2]/div[1]/ul"
         date_range_list = self.driver.find_element(By.XPATH, date_range_list_xpath)
         for date_range in date_range_list.find_elements(By.TAG_NAME, 'li'):
-            if date_range.text == PICKED_DATE_RANGE:
+            if date_range.text == selected_date_range:
                 logger.info(f"SELECTED DATE RANGE: {date_range.text}")
                 date_range.click()
                 break
@@ -143,7 +143,8 @@ class Bitacora:
                 if xlsx_file.name.startswith("Clockify"):
                     found_file_flag = True
                     logger.debug("Moving last week clockify file")
-                    self.bitacora_file = Path.cwd().joinpath(xlsx_file.name)
+                    # self.bitacora_file = Path.cwd().joinpath(xlsx_file.name)
+                    self.bitacora_file = Path.home().joinpath(f"SWProjects/personal_projects/Bitacora/{xlsx_file.name}")
                     xlsx_file.replace(self.bitacora_file)
             time.sleep(1)
         # After wait for file to download, close safely the webdriver.Firefox
@@ -215,9 +216,9 @@ class Bitacora:
         logger.info("¡Bitacora updated!")
 
 
-def main():
+def main(selected_date_range: str) -> None:
     bitacora_manager = Bitacora()
-    bitacora_manager.download_clockify_time_report()
+    bitacora_manager.download_clockify_time_report(selected_date_range)
     bitacora_manager.change_bitacora_file_location()
     bitacora_manager.extract_time_range_information()
     bitacora_manager.clean_downloaded_csv_data()
@@ -225,4 +226,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    main(PICKED_DATE_RANGE)
