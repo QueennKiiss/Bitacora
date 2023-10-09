@@ -16,6 +16,7 @@ import logging
 from pathlib import Path
 from typing import Any
 import pandas as pd
+from datetime import datetime
 from argparse import ArgumentParser
 
 from selenium import webdriver
@@ -25,6 +26,8 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.firefox.options import Options
 
 import credentials as cdt
+from desktop_notificactions import create_critical_notification
+
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.DEBUG)
@@ -67,8 +70,9 @@ class Bitacora:
         # - headless= True to hide the browser window
         options = Options()
         options.add_argument("-headless")
+        service = webdriver.FirefoxService(executable_path="/home/mmaestro/.cache/selenium/geckodriver/linux64/0.33.0/geckodriver")
         # Take de driver file from /usr/local/bin
-        self.driver = webdriver.Firefox(options=options)
+        self.driver = webdriver.Firefox(options=options, service=service)
 
         logger.debug("Opening URL")
 
@@ -191,7 +195,8 @@ class Bitacora:
 
     def update_bitacora_file(self) -> None:
         """ Updates the xlsx bitacora file with new week entries"""
-        bitacora_xlsx_path = Path.cwd().joinpath(cdt.BITACORA_FILE_NAME)
+        # bitacora_xlsx_path = Path.cwd().joinpath(cdt.BITACORA_FILE_NAME)
+        bitacora_xlsx_path =Path.home().joinpath(f"SWProjects/personal_projects/Bitacora/{cdt.BITACORA_FILE_NAME}")
         if not bitacora_xlsx_path.exists():
             logger.info(f"Creating xlsx file: {bitacora_xlsx_path}")
             self.bitacora_df.to_excel(bitacora_xlsx_path, index=False, sheet_name="Sheet1")
@@ -205,6 +210,7 @@ class Bitacora:
                     engine="openpyxl",
                     if_sheet_exists="overlay"
                     ) as writer:
+                logger.info("Updating bitacora excel file!")
                 date_df.to_excel(
                     writer,
                     index=False,
@@ -215,15 +221,25 @@ class Bitacora:
 
         logger.info("¡Bitacora updated!")
 
+    def desktop_notification() -> None:
+        """ Show up a notification when bitacora updating finishes"""
+        title = "Bitacora Updated!!!"
+        message = f"The bile bitacora has been updated at {datetime.now()}"
+        create_critical_notification(title=title, message=message)
+
 
 def main(selected_date_range: str) -> None:
+    logger.info(f"{'='*20} New Bitacora Updating Started {'='*20}")
+    
     bitacora_manager = Bitacora()
     bitacora_manager.download_clockify_time_report(selected_date_range)
     bitacora_manager.change_bitacora_file_location()
     bitacora_manager.extract_time_range_information()
     bitacora_manager.clean_downloaded_csv_data()
     bitacora_manager.update_bitacora_file()
-
+    bitacora_manager.desktop_notification()
+    
+    logger.info(f"{'='*20} Bitacora Updated {'='*20}")
 
 if __name__ == '__main__':
     main(PICKED_DATE_RANGE)
