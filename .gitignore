@@ -21,3 +21,8 @@ __pycache__/
 
 # Ignore geckodriver from selenium
 geckodriver.log
+
+# Sensitive information files
+logs.txt
+credentials.py
+cron_file.py
